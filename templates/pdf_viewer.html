@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <!-- PDF Filename on Left -->
+                <h5 class="mb-0">{{ pdf_file.filename }}</h5>
+                
+                <!-- Button Group on Right -->
+                <div>
+                    <!-- Share Button (if applicable) -->
+                    {% if current_user.is_authenticated and pdf_file.user_id == current_user.id and not is_shared %}
+                    <a href="{{ url_for('share_pdf', file_id=pdf_file.id) }}" 
+                       class="btn btn-sm btn-primary me-2"
+                       title="Share this document">
+                        <i class="bi bi-share-fill"></i> Share
+                    </a>
+                    {% endif %}
+                    
+                    <!-- Blue Back to Dashboard Button -->
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="ratio ratio-16x9">
+                    <iframe src="{{ file_url }}" style="width: 100%; height: 600px;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Comments</h5>
+            </div>
+            <div class="card-body comments-section" style="max-height: 600px; overflow-y: auto;">
+                <div id="comments-container">
+                    {% if comments %}
+                        {% for comment in comments %}
+                            {% if not comment.parent_id %}
+                                {% include '_comment.html' %}
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No comments yet</p>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-3">
+                    <form id="comment-form">
+                        <input type="hidden" name="file_id" value="{{ pdf_file.id }}">
+                        <div class="mb-3">
+                            <textarea class="form-control" name="content" rows="3" placeholder="Add a comment..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Post Comment</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const commentForm = document.getElementById('comment-form');
+    
+    commentForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(commentForm);
+        const data = {
+            file_id: formData.get('file_id'),
+            content: formData.get('content'),
+            share_token: formData.get('share_token')
+        };
+        
+        fetch('{{ url_for("add_comment") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Add the new comment to the container
+                const commentHtml = `
+                    <div class="comment mb-3" data-comment-id="${data.comment.id}" ${data.comment.parent_id ? `data-parent-id="${data.comment.parent_id}"` : ''}>
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">${data.comment.user_name}</h6>
+                                <p class="card-text">${data.comment.content}</p>
+                                <small class="text-muted">${data.comment.created_at}</small>
+                                <button class="btn btn-sm btn-outline-secondary reply-btn float-end">Reply</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                if (data.comment.parent_id) {
+                    // Find parent comment and append this as a reply
+                    const parentComment = document.querySelector(`.comment[data-comment-id="${data.comment.parent_id}"]`);
+                    if (parentComment) {
+                        let repliesContainer = parentComment.querySelector('.replies');
+                        if (!repliesContainer) {
+                            repliesContainer = document.createElement('div');
+                            repliesContainer.className = 'replies ms-4 mt-2';
+                            parentComment.appendChild(repliesContainer);
+                        }
+                        repliesContainer.insertAdjacentHTML('beforeend', commentHtml);
+                    }
+                } else {
+                    // Add to main comments container
+                    document.getElementById('comments-container').insertAdjacentHTML('beforeend', commentHtml);
+                }
+                
+                // Clear the form
+                commentForm.querySelector('textarea').value = '';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while posting the comment');
+        });
+    });
+    
+    // Handle reply button clicks (delegated event)
+    document.getElementById('comments-container').addEventListener('click', function(e) {
+        if (e.target.classList.contains('reply-btn')) {
+            const commentCard = e.target.closest('.comment');
+            const commentId = commentCard.dataset.commentId;
+            
+            // Create a reply form
+            const replyForm = document.createElement('form');
+            replyForm.className = 'reply-form mt-2';
+            replyForm.innerHTML = `
+                <input type="hidden" name="file_id" value="{{ pdf_file['id'] }}">
+                <input type="hidden" name="parent_id" value="${commentId}">
+                {% if is_shared %}
+                <input type="hidden" name="share_token" value="{{ share_token }}">
+                {% endif %}
+                <div class="mb-2">
+                    <textarea class="form-control" name="content" rows="2" placeholder="Write a reply..." required></textarea>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary cancel-reply">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-primary">Post Reply</button>
+                </div>
+            `;
+            
+            // Insert after the comment card
+            commentCard.insertAdjacentElement('afterend', replyForm);
+            
+            // Handle form submission
+            replyForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(replyForm);
+                const data = {
+                    file_id: formData.get('file_id'),
+                    content: formData.get('content'),
+                    parent_id: formData.get('parent_id'),
+                    share_token: formData.get('share_token')
+                };
+                
+                fetch('{{ url_for("add_comment") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        replyForm.remove();
+                        
+                        // Add the reply to the comments
+                        const replyHtml = `
+                            <div class="comment mb-3" data-comment-id="${data.comment.id}" data-parent-id="${data.comment.parent_id}">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-subtitle mb-2 text-muted">${data.comment.user_name}</h6>
+                                        <p class="card-text">${data.comment.content}</p>
+                                        <small class="text-muted">${data.comment.created_at}</small>
+                                        <button class="btn btn-sm btn-outline-secondary reply-btn float-end">Reply</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // Find parent comment and append this as a reply
+                        const parentComment = document.querySelector(`.comment[data-comment-id="${data.comment.parent_id}"]`);
+                        if (parentComment) {
+                            let repliesContainer = parentComment.querySelector('.replies');
+                            if (!repliesContainer) {
+                                repliesContainer = document.createElement('div');
+                                repliesContainer.className = 'replies ms-4 mt-2';
+                                parentComment.appendChild(repliesContainer);
+                            }
+                            repliesContainer.insertAdjacentHTML('beforeend', replyHtml);
+                        }
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                });
+            });
+            
+            // Handle cancel
+            replyForm.querySelector('.cancel-reply').addEventListener('click', function() {
+                replyForm.remove();
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

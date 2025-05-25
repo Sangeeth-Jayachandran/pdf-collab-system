@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Share PDF: {{ pdf_file.filename }}</h3>
+    
+    {% if share %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5>Existing Share Link</h5>
+        </div>
+        <div class="card-body">
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" id="share-link" 
+                       value="{{ url_for('view_shared_pdf', token=share.share_token, _external=True) }}" readonly>
+                <button class="btn btn-outline-secondary" type="button" id="copy-button"
+                        data-bs-toggle="tooltip" title="Copy to clipboard">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+            </div>
+            <small class="text-muted">Created on {{ share.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info mt-4">
+        No share link exists for this file yet.
+    </div>
+    {% endif %}
+    
+    <form method="POST" class="mt-4">
+        <button type="submit" class="btn btn-primary">
+            {% if share %}Refresh Share Link{% else %}Create Share Link{% endif %}
+        </button>
+        <a href="{{ url_for('view_pdf', file_id=pdf_file.id) }}" class="btn btn-secondary">Back to PDF</a>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Copy to clipboard functionality
+    const copyButton = document.getElementById('copy-button');
+    if (copyButton) {
+        copyButton.addEventListener('click', function() {
+            const shareLink = document.getElementById('share-link');
+            shareLink.select();
+            document.execCommand('copy');
+            
+            // Show tooltip feedback
+            const tooltip = new bootstrap.Tooltip(copyButton, {
+                title: 'Copied!',
+                trigger: 'manual'
+            });
+            tooltip.show();
+            
+            setTimeout(() => {
+                tooltip.hide();
+                tooltip.dispose();
+            }, 2000);
+        });
+    }
+});
+</script>
+{% endblock %}

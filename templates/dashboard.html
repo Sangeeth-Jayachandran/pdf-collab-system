@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>My Dashboard</h2>
+    <div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <i class="bi bi-upload"></i> Upload PDF
+        </button>
+    </div>
+</div>
+
+<!-- Search Form -->
+<form class="mb-4" action="{{ url_for('search') }}" method="GET">
+    <div class="input-group">
+        <input type="text" class="form-control" name="q" placeholder="Search PDFs..." value="{{ search_query or '' }}">
+        <button class="btn btn-outline-secondary" type="submit">Search</button>
+    </div>
+</form>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadModalLabel">Upload PDF</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Select PDF File</label>
+                        <input class="form-control" type="file" id="file" name="file" accept=".pdf" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- My PDFs Section -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>My PDFs</h5>
+    </div>
+    <div class="card-body">
+        {% if user_pdfs %}
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for pdf in user_pdfs %}
+            <div class="col">
+                <div class="card h-100 pdf-card">
+                    <div class="card-body">
+                        <h6 class="card-title">{{ pdf.filename }}</h6>
+                        <p class="card-text text-muted small">
+                            Uploaded: {{ pdf.upload_date.strftime('%Y-%m-%d') }}
+                        </p>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="{{ url_for('view_pdf', file_id=pdf.id) }}" class="btn btn-sm btn-outline-primary">
+                            View & Comment
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <p class="text-muted">You haven't uploaded any PDFs yet.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                Upload Your First PDF
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

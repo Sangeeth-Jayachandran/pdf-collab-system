@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-center" style="margin-top: 60px;">
+    <div class="col-md-4">
+        <div class="card shadow" style="min-height: 480px;">
+            <div class="card-header bg-primary text-white text-center">
+                <h4 class="mb-0">Register</h4>
+            </div>
+            <div class="card-body d-flex flex-column justify-content-center">
+                <form method="POST" action="{{ url_for('register') }}" class="mx-auto" style="width: 80%;">
+                    <div class="mb-3 text-start">
+                        <label for="name" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3 text-start">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3 text-start">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Register</button>
+                    </div>
+                </form>
+                <div class="mt-4 text-center">
+                    Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

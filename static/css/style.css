@@ -1,0 +1,54 @@
+/* Custom styles */
+.comment {
+    margin-bottom: 1rem;
+}
+
+.comment .card {
+    border-left: 3px solid #0d6efd;
+}
+
+.replies {
+    border-left: 2px solid #dee2e6;
+    padding-left: 1rem;
+}
+
+.comments-section {
+    scrollbar-width: thin;
+    scrollbar-color: #dee2e6 #f8f9fa;
+}
+
+.comments-section::-webkit-scrollbar {
+    width: 8px;
+}
+
+.comments-section::-webkit-scrollbar-track {
+    background: #f8f9fa;
+}
+
+.comments-section::-webkit-scrollbar-thumb {
+    background-color: #dee2e6;
+    border-radius: 20px;
+}
+
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 5px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.upload-area:hover {
+    border-color: #0d6efd;
+    background-color: #f8f9fa;
+}
+
+.pdf-card {
+    transition: all 0.2s;
+}
+
+.pdf-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
