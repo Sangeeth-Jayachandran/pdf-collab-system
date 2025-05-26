@@ -52,3 +52,36 @@
     transform: translateY(-2px);
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
+
+/* WhatsApp button hover effect */
+.btn[style*="background-color: #25D366"]:hover {
+    background-color: #128C7E !important;
+    border-color: #128C7E !important;
+}
+
+
+/* Button spacing */
+.input-group-append .btn {
+    margin-left: 0.25rem;
+}
+
+/* Button icons */
+.bi-whatsapp, .bi-envelope {
+    font-size: 1.1rem;
+}
+
+/* Email button hover effect */
+.btn[style*="background-color: #EA4335"] {
+    transition: all 0.2s ease;
+}
+
+.btn[style*="background-color: #EA4335"]:hover {
+    background-color: #D33426 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Button text */
+.btn .bi-envelope {
+    margin-right: 5px;
+}

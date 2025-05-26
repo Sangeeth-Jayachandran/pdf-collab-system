@@ -1,19 +1,12 @@
-<div class="comment mb-3" data-comment-id="{{ comment.id }}" {% if comment.parent_id %}data-parent-id="{{ comment.parent_id }}"{% endif %}>
-    <div class="card">
-        <div class="card-body">
-            <h6 class="card-subtitle mb-2 text-muted">{{ comment.user_name }}</h6>
-            <p class="card-text">{{ comment.content }}</p>
-            <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-            {% if current_user.is_authenticated or is_shared %}
-            <button class="btn btn-sm btn-outline-secondary reply-btn float-end">Reply</button>
-            {% endif %}
-        </div>
-    </div>
-    {% if comment.replies %}
-    <div class="replies ms-4 mt-2">
-        {% for reply in comment.replies %}
-            {% include '_comment.html' %}
-        {% endfor %}
-    </div>
-    {% endif %}
+<div class="card-body">
+    <form id="comment-form">
+        <input type="hidden" name="file_id" value="{{ pdf_file.id }}">
+        {% if is_shared %}
+        <input type="hidden" name="share_token" value="{{ share_token }}">
+        {% endif %}
+        <textarea name="content" class="form-control mb-2" required></textarea>
+        <button type="submit" class="btn btn-primary">
+            Post as {% if current_user.is_authenticated %}{{ current_user.name }}{% else %}Guest{% endif %}
+        </button>
+    </form>
 </div>

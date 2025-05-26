@@ -11,10 +11,15 @@
 </div>
 
 <!-- Search Form -->
-<form class="mb-4" action="{{ url_for('search') }}" method="GET">
+<form class="mb-4" action="{{ url_for('pdf_routes.search') }}" method="GET">
     <div class="input-group">
-        <input type="text" class="form-control" name="q" placeholder="Search PDFs..." value="{{ search_query or '' }}">
-        <button class="btn btn-outline-secondary" type="submit">Search</button>
+        <input type="text" class="form-control" name="q" 
+               placeholder="Search PDFs..." 
+               value="{{ search_query or '' }}"
+               required>
+        <button class="btn btn-outline-primary" type="submit">
+            <i class="bi bi-search"></i> Search
+        </button>
     </div>
 </form>
 
@@ -59,10 +64,17 @@
                             Uploaded: {{ pdf.upload_date.strftime('%Y-%m-%d') }}
                         </p>
                     </div>
-                    <div class="card-footer bg-transparent">
+                    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
                         <a href="{{ url_for('view_pdf', file_id=pdf.id) }}" class="btn btn-sm btn-outline-primary">
                             View & Comment
                         </a>
+                        <form action="{{ url_for('delete_pdf', file_id=pdf.id) }}" 
+                              method="POST" 
+                              onsubmit="return confirm('Are you sure you want to delete {{ pdf.filename }}?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>

@@ -6,33 +6,55 @@
     
     {% if share %}
     <div class="card mt-4">
-        <div class="card-header">
-            <h5>Existing Share Link</h5>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Share Link</h5>
+            <form method="POST" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-warning">
+                    <i class="bi bi-arrow-repeat"></i> Refresh Link
+                </button>
+            </form>
         </div>
         <div class="card-body">
             <div class="input-group mb-3">
                 <input type="text" class="form-control" id="share-link" 
                        value="{{ url_for('view_shared_pdf', token=share.share_token, _external=True) }}" readonly>
-                <button class="btn btn-outline-secondary" type="button" id="copy-button"
-                        data-bs-toggle="tooltip" title="Copy to clipboard">
-                    <i class="bi bi-clipboard"></i>
+                <button class="btn btn-outline-secondary" type="button" id="copy-button">
+                    <i class="bi bi-clipboard"></i> Copy
                 </button>
             </div>
-            <small class="text-muted">Created on {{ share.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+            <div class="mt-3">
+                <form method="POST" action="{{ url_for('share_pdf_email', file_id=pdf_file.id) }}">
+                    <div class="input-group">
+                        <input type="email" class="form-control" name="email" placeholder="Enter email to send link">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="bi bi-envelope"></i> Send via Email
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <small class="text-muted d-block mt-2">
+                Created on {{ share.created_at.strftime('%Y-%m-%d %H:%M') }}
+            </small>
         </div>
     </div>
     {% else %}
-    <div class="alert alert-info mt-4">
-        No share link exists for this file yet.
+    <div class="card mt-4">
+        <div class="card-body text-center">
+            <p>No share link exists for this file yet.</p>
+            <form method="POST">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-share"></i> Create Share Link
+                </button>
+            </form>
+        </div>
     </div>
     {% endif %}
     
-    <form method="POST" class="mt-4">
-        <button type="submit" class="btn btn-primary">
-            {% if share %}Refresh Share Link{% else %}Create Share Link{% endif %}
-        </button>
-        <a href="{{ url_for('view_pdf', file_id=pdf_file.id) }}" class="btn btn-secondary">Back to PDF</a>
-    </form>
+    <div class="mt-4">
+        <a href="{{ url_for('view_pdf', file_id=pdf_file.id) }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to PDF
+        </a>
+    </div>
 </div>
 {% endblock %}
 
@@ -47,16 +69,17 @@ document.addEventListener('DOMContentLoaded', function() {
             shareLink.select();
             document.execCommand('copy');
             
-            // Show tooltip feedback
-            const tooltip = new bootstrap.Tooltip(copyButton, {
-                title: 'Copied!',
-                trigger: 'manual'
-            });
-            tooltip.show();
+            // Change button appearance temporarily
+            const originalHTML = copyButton.innerHTML;
+            copyButton.innerHTML = '<i class="bi bi-check"></i> Copied!';
+            copyButton.classList.remove('btn-outline-secondary');
+            copyButton.classList.add('btn-success');
             
+            // Reset after 2 seconds
             setTimeout(() => {
-                tooltip.hide();
-                tooltip.dispose();
+                copyButton.innerHTML = originalHTML;
+                copyButton.classList.remove('btn-success');
+                copyButton.classList.add('btn-outline-secondary');
             }, 2000);
         });
     }
