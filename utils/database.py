@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-import mysql.connector
 from mysql.connector import pooling
 from flask import current_app
 
