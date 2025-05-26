@@ -1,6 +1,5 @@
 Flask==2.0.1
 Flask-Login==0.5.0
-Flask-Bcrypt==0.7.1
 mysql-connector-python==8.0.26
 python-dotenv==0.19.0
 PyPDF2==1.26.0
@@ -8,3 +7,4 @@ Flask-Mail==0.9.1
 python-dotenv==0.19.0
 gunicorn
 Werkzeug==2.2.3
+Flask-Bcrypt==1.0.1
