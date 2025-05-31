@@ -50,5 +50,9 @@ def db_cursor():
     if not current_app or not hasattr(current_app, 'db_pool'):
         raise RuntimeError("Application not configured with database pool")
     
-    with current_app.db_pool.get_cursor() as cursor:
-        yield cursor
+    try:
+        connection = current_app.db_pool.get_connection()
+        cursor = connection.cursor(dictionary=True)
+    finally:
+        cursor.close()
+        connection.close()
