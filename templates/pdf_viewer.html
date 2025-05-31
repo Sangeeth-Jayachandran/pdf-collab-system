@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function() {
             share_token: formData.get('share_token')  // This is crucial for guest access
         };
         
-        fetch('{{ url_for("add_comment") }}', {
+        fetch('{{ url_for("comment_routes.add_comment") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
                 
                 // Same fetch call as above
-                fetch('{{ url_for("add_comment") }}', {
+                fetch('{{ url_for("comment_routes.add_comment") }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

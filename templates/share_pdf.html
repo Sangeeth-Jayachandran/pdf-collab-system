@@ -17,7 +17,7 @@
         <div class="card-body">
             <div class="input-group mb-3">
                 <input type="text" class="form-control" id="share-link" 
-                       value="{{ url_for('view_shared_pdf', token=share.share_token, _external=True) }}" readonly>
+                       value="{{ url_for('pdf_routes.view_shared_pdf', token=share.share_token, _external=True) }}" readonly>
                 <button class="btn btn-outline-secondary" type="button" id="copy-button">
                     <i class="bi bi-clipboard"></i> Copy
                 </button>
@@ -51,7 +51,7 @@
     {% endif %}
     
     <div class="mt-4">
-        <a href="{{ url_for('view_pdf', file_id=pdf_file.id) }}" class="btn btn-secondary">
+        <a href="{{ url_for('pdf_routes.view_pdf', file_id=pdf_file.id) }}" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> Back to PDF
         </a>
     </div>

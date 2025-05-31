@@ -31,7 +31,7 @@
                 <h5 class="modal-title" id="uploadModalLabel">Upload PDF</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('pdf_routes.upload_file') }}" enctype="multipart/form-data">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="file" class="form-label">Select PDF File</label>
@@ -65,10 +65,10 @@
                         </p>
                     </div>
                     <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('view_pdf', file_id=pdf.id) }}" class="btn btn-sm btn-outline-primary">
+                        <a href="{{ url_for('pdf_routes.view_pdf', file_id=pdf.id) }}" class="btn btn-sm btn-outline-primary">
                             View & Comment
                         </a>
-                        <form action="{{ url_for('delete_pdf', file_id=pdf.id) }}" 
+                        <form action="{{ url_for('pdf_routes.delete_pdf', file_id=pdf.id) }}" 
                               method="POST" 
                               onsubmit="return confirm('Are you sure you want to delete {{ pdf.filename }}?');">
                             <button type="submit" class="btn btn-sm btn-outline-danger">
