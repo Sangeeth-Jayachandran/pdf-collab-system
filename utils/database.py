@@ -35,8 +35,13 @@ class DatabasePool:
             cursor.close()
             conn.close()
 
-# Initialize the database pool instance
-db_pool = DatabasePool()
+db_pool = None
+
+def get_db_pool():
+    global db_pool
+    if db_pool is None:
+        db_pool = DatabasePool()
+    return db_pool
 
 # Create a convenience function that uses the pool instance
 @contextmanager
