@@ -12,7 +12,7 @@
                 <div>
                     <!-- Share Button (if applicable) -->
                     {% if current_user.is_authenticated and pdf_file.user_id == current_user.id and not is_shared %}
-                    <a href="{{ url_for('share_pdf', file_id=pdf_file.id) }}" 
+                    <a href="{{ url_for('share_routes.share_pdf', file_id=pdf_file.id) }}" 
                        class="btn btn-sm btn-primary me-2"
                        title="Share this document">
                         <i class="bi bi-share-fill"></i> Share
@@ -20,7 +20,7 @@
                     {% endif %}
                     
                     <!-- Blue Back to Dashboard Button -->
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-primary">
+                    <a href="{{ url_for('pdf_routes.dashboard') }}" class="btn btn-sm btn-primary">
                         <i class="bi bi-arrow-left"></i> Back to Dashboard
                     </a>
                 </div>

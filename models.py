@@ -1,15 +1,18 @@
 from flask import current_app
 from flask_login import UserMixin
 from flask_bcrypt import Bcrypt
+from utils.database import db_pool, get_db_pool
 
 bcrypt = Bcrypt()
 
-class User:
+class User():
     def __init__(self, id, email, name):
         self.id = id
         self.email = email
         self.name = name
     
+    db_pool = get_db_pool()
+
     @staticmethod
     def generate_password_hash(password):
         """Generate a password hash"""
@@ -22,10 +25,16 @@ class User:
     
     @staticmethod
     def get_by_id(user_id):
-        """Get user by ID"""
-        with current_app.db_pool.cursor() as cursor:
+        try:
+            connection = db_pool.get_connection()
+            cursor = connection.cursor(dictionary=True)
             cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
             user_data = cursor.fetchone()
+            cursor.close()
+            connection.close()
+            
             if user_data:
-                return User(user_data['id'], user_data['email'], user_data['name'])
+                return User(**user_data)
+        except Exception as e:
+            print(f"Error fetching user: {e}")
             return None

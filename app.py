@@ -4,7 +4,6 @@ from flask_mail import Mail
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from config import Config
-from models import User
 from routes.auth_routes import auth_bp 
 from routes.comment_routes import comment_bp
 from routes.pdf_routes import pdf_bp
@@ -23,6 +22,7 @@ def create_application():
 
     @login_manager.user_loader
     def load_user(user_id):
+        from models import User
         return User.get_by_id(user_id) 
 
     db_pool.init_app(app)

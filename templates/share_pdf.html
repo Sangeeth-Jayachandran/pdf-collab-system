@@ -23,7 +23,7 @@
                 </button>
             </div>
             <div class="mt-3">
-                <form method="POST" action="{{ url_for('share_pdf_email', file_id=pdf_file.id) }}">
+                <form method="POST" action="{{ url_for('share_routes.share_pdf_email', file_id=pdf_file.id) }}">
                     <div class="input-group">
                         <input type="email" class="form-control" name="email" placeholder="Enter email to send link">
                         <button class="btn btn-primary" type="submit">
