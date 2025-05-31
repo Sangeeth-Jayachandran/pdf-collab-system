@@ -1,4 +1,5 @@
-from flask import Blueprint
+from flask import Blueprint, redirect, url_for
+from flask_login import current_user
 from controllers.auth_controller import (
     register,
     login,
@@ -9,7 +10,13 @@ from controllers.auth_controller import (
 
 auth_bp = Blueprint('auth_routes', __name__)
 
+@auth_bp.route('/')
+def index():
+    if current_user.is_authenticated:
+        return redirect(url_for('auth_routes.dashboard'))
+    return redirect(url_for('auth_routes.login'))
 # Authentication routes
+
 auth_bp.route('/register', methods=['GET', 'POST'])(register)
 auth_bp.route('/login', methods=['GET', 'POST'])(login)
 auth_bp.route('/logout')(logout)
