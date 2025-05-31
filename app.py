@@ -4,8 +4,8 @@ from flask_mail import Mail
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from config import Config
-from utils.database import db_pool
 from routes import register_routes
+from utils.database import db_pool
 
 def create_application():
     # Initialize Flask application
@@ -32,7 +32,7 @@ def create_application():
     return app
 
 # Create the application instance
-application = create_application()
+app = create_application()
 
 if __name__ == '__main__':
-    application.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
