@@ -17,13 +17,14 @@ def validate_registration(name, email, password):
     
     return None
 
-# auth_utils.py
-
 def validate_login(email, password):
     """Validate user login credentials"""
     from models import User
 
-    with current_app.db_pool.cursor() as cursor:
+    try:
+        connection = current_app.db_pool.get_connection()
+        cursor = connection.cursor(dictionary=True)
+
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user_data = cursor.fetchone()
         
@@ -35,6 +36,9 @@ def validate_login(email, password):
         
         user = User(user_data['id'], user_data['email'], user_data['name'])
         return user, None
+    finally:
+        cursor.close()
+        connection.close()
 
 
 def validate_password_change(current_password, new_password, confirm_password):
