@@ -4,6 +4,7 @@ from flask_mail import Mail
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from config import Config
+from models import User
 from routes.auth_routes import auth_bp 
 from routes.comment_routes import comment_bp
 from routes.pdf_routes import pdf_bp
@@ -12,20 +13,20 @@ from routes.user_routes import user_bp
 from utils.database import db_pool
 
 def create_application():
-    # Initialize Flask application
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Initialize extensions
     mail = Mail(app)
     bcrypt = Bcrypt(app)
     login_manager = LoginManager(app)
     login_manager.login_view = 'auth_routes.login'
-    
-    # Initialize database pool
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.get_by_id(user_id) 
+
     db_pool.init_app(app)
     
-    # Store extensions in app context for easy access
     app.mail = mail
     app.bcrypt = bcrypt
     app.login_manager = login_manager
@@ -38,7 +39,6 @@ def create_application():
     
     return app
 
-# Create the application instance
 app = create_application()
 
 if __name__ == '__main__':
