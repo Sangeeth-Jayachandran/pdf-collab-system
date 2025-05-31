@@ -4,7 +4,11 @@ from flask_mail import Mail
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from config import Config
-from routes import auth_routes, comment_routes, pdf_routes, register_routes, share_routes, user_routes
+from routes.auth_routes import auth_bp 
+from routes.comment_routes import comment_bp
+from routes.pdf_routes import pdf_bp
+from routes.share_routes import share_bp
+from routes.user_routes import user_bp
 from utils.database import db_pool
 
 def create_application():
@@ -26,11 +30,11 @@ def create_application():
     app.bcrypt = bcrypt
     app.login_manager = login_manager
     
-    app.register_blueprint(auth_routes)
-    app.register_blueprint(pdf_routes)
-    app.register_blueprint(share_routes)
-    app.register_blueprint(comment_routes)
-    app.register_blueprint(user_routes)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(pdf_bp)
+    app.register_blueprint(share_bp)
+    app.register_blueprint(comment_bp)
+    app.register_blueprint(user_bp)
     
     return app
 
