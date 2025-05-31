@@ -43,6 +43,9 @@ def get_db_pool():
         db_pool = DatabasePool()
     return db_pool
 
+def get_connection(self):
+    return self.pool.get_connection()
+
 # Create a convenience function that uses the pool instance
 @contextmanager
 def db_cursor():
