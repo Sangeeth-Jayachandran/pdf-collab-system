@@ -1,7 +1,7 @@
 from flask import current_app
 from flask_login import UserMixin
 from flask_bcrypt import Bcrypt
-from utils.database import db_pool, get_db_pool
+from utils.database import db_cursor, db_pool, get_db_pool
 
 bcrypt = Bcrypt()
 
@@ -26,15 +26,11 @@ class User():
     @staticmethod
     def get_by_id(user_id):
         try:
-            connection = db_pool.get_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-            user_data = cursor.fetchone()
-            cursor.close()
-            connection.close()
-            
-            if user_data:
-                return User(**user_data)
+            with db_cursor() as cursor:
+                cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+                user_data = cursor.fetchone()
+                if user_data:
+                    return User(**user_data)
         except Exception as e:
             print(f"Error fetching user: {e}")
-            return None
+        return None

@@ -4,6 +4,8 @@ from flask_bcrypt import Bcrypt
 from models import User
 import re
 
+from utils.database import db_cursor
+
 def validate_registration(name, email, password):
     """Validate user registration data"""
     if not name or not email or not password:
@@ -18,27 +20,18 @@ def validate_registration(name, email, password):
     return None
 
 def validate_login(email, password):
-    """Validate user login credentials"""
-    from models import User
-
     try:
-        connection = current_app.db_pool.get_connection()
-        cursor = connection.cursor(dictionary=True)
+        with db_cursor() as cursor:
+            cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+            user_data = cursor.fetchone()
 
-        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-        user_data = cursor.fetchone()
-        
-        if not user_data:
-            return None, "Invalid email or password"
-        
-        if not User.check_password_hash(user_data['password'], password):
-            return None, "Invalid email or password"
-        
-        user = User(user_data['id'], user_data['email'], user_data['name'])
-        return user, None
-    finally:
-        cursor.close()
-        connection.close()
+            if user_data and current_app.bcrypt.check_password_hash(user_data['password'], password):
+                return User(**user_data), None
+            else:
+                return None, "Invalid email or password"
+    except Exception as e:
+        print(f"Error during login: {e}")
+        return None, "An error occurred during login"
 
 
 def validate_password_change(current_password, new_password, confirm_password):

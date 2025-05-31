@@ -49,13 +49,14 @@ def get_connection(self):
 # Create a convenience function that uses the pool instance
 @contextmanager
 def db_cursor():
-    """Convenience function for getting a database cursor"""
-    if not current_app or not hasattr(current_app, 'db_pool'):
-        raise RuntimeError("Application not configured with database pool")
-    
+    connection = None
+    cursor = None
     try:
         connection = current_app.db_pool.get_connection()
         cursor = connection.cursor(dictionary=True)
+        yield cursor
     finally:
-        cursor.close()
-        connection.close()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
