@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_mail import Mail
 from flask_bcrypt import Bcrypt
@@ -34,4 +35,4 @@ def create_application():
 application = create_application()
 
 if __name__ == '__main__':
-    application.run(debug=True)
+    application.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
