@@ -1,7 +1,8 @@
-from flask import render_template, request, flash, redirect, url_for
+import bcrypt
+from flask import current_app, render_template, request, flash, redirect, url_for
 from flask_login import login_user, logout_user, current_user
 from utils.database import db_cursor
-from utils.auth_utils import validate_registration, validate_login
+from utils.auth_utils import is_email_registered, validate_registration, validate_login
 from utils.mail_utils import send_password_reset_email
 import secrets
 from datetime import datetime, timedelta
@@ -13,24 +14,31 @@ def register():
         email = request.form['email']
         password = request.form['password']
         
-        error = validate_registration(name, email, password)
-        if error:
-            flash(error, 'danger')
-            return render_template('auth/register.html')
-        
+        if is_email_registered(email):
+            flash("Email already exists.", "danger")
+            return redirect(url_for('auth_bp.register'))
+
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
         try:
-            with db_cursor() as cursor:
-                hashed_password = User.generate_password_hash(password)
-                cursor.execute(
-                    "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
-                    (name, email, hashed_password)
-                )
-                flash('Registration successful! Please log in.', 'success')
-                return redirect(url_for('auth_routes.login'))
-        except Exception:
-            flash('Email already exists. Please use a different email.', 'danger')
-    
-    return render_template('auth/register.html')
+            connection = current_app.db_pool.get_connection()
+            cursor = connection.cursor()
+            cursor.execute("""
+                INSERT INTO users (name, email, password)
+                VALUES (%s, %s, %s)
+            """, (name, email, hashed_password))
+            connection.commit()
+            cursor.close()
+            connection.close()
+
+            flash("Registration successful. Please log in.", "success")
+            return redirect(url_for('auth_bp.login'))
+
+        except Exception as e:
+            print(f"Error during registration: {e}")
+            flash("An error occurred. Please try again.", "danger")
+
+    return render_template("auth/register.html")
 
 def login():
     if request.method == 'POST':
@@ -43,8 +51,7 @@ def login():
             return render_template('auth/login.html')
         
         login_user(user)
-        next_page = request.args.get('next')
-        return redirect(next_page) if next_page else redirect(url_for('pdf_routes.dashboard'))
+        redirect(url_for('pdf_routes.dashboard'))
     
     return render_template('auth/login.html')
 

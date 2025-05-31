@@ -21,18 +21,27 @@ def validate_registration(name, email, password):
 
 def validate_login(email, password):
     try:
-        with db_cursor() as cursor:
-            cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-            user_data = cursor.fetchone()
+        connection = current_app.db_pool.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user_data = cursor.fetchone()
 
-            if user_data and current_app.bcrypt.check_password_hash(user_data['password'], password):
-                return User(**user_data), None
-            else:
-                return None, "Invalid email or password"
+        if user_data and current_app.bcrypt.check_password_hash(user_data['password'], password):
+            return User(**user_data), None
+        else:
+            return None, "Invalid email or password"
     except Exception as e:
         print(f"Error during login: {e}")
         return None, "An error occurred during login"
 
+def is_email_registered(email):
+    connection = current_app.db_pool.get_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+    user = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    return user is not None
 
 def validate_password_change(current_password, new_password, confirm_password):
     """Validate password change request"""
