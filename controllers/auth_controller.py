@@ -1,4 +1,4 @@
-import bcrypt
+from extensions import bcrypt
 from flask import current_app, render_template, request, flash, redirect, url_for
 from flask_login import login_user, logout_user, current_user
 from utils.database import db_cursor
@@ -16,7 +16,7 @@ def register():
         
         if is_email_registered(email):
             flash("Email already exists.", "danger")
-            return redirect(url_for('auth_bp.register'))
+            return redirect(url_for('auth_routes.register'))
 
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
@@ -32,7 +32,7 @@ def register():
             connection.close()
 
             flash("Registration successful. Please log in.", "success")
-            return redirect(url_for('auth_bp.login'))
+            return redirect(url_for('auth_routes.login'))
 
         except Exception as e:
             print(f"Error during registration: {e}")
@@ -45,13 +45,23 @@ def login():
         email = request.form['email']
         password = request.form['password']
         
-        user, error = validate_login(email, password)
-        if error:
-            flash(error, 'danger')
-            return render_template('auth/login.html')
+        try:
+            user, error = validate_login(email, password)
+            if error:
+                flash(error, 'danger')
+                return render_template('auth/login.html')
+            
+            if not user:
+                flash('Invalid email or password', 'danger')
+                return render_template('auth/login.html')
+            
+            login_user(user)
+            next_page = request.args.get('next')
+            return redirect(next_page) if next_page else redirect(url_for('pdf_routes.dashboard'))
         
-        login_user(user)
-        redirect(url_for('pdf_routes.dashboard'))
+        except Exception as e:
+            print(f"Login error: {e}")
+            flash('An error occurred during login', 'danger')
     
     return render_template('auth/login.html')
 

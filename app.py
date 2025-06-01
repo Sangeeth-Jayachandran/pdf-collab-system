@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_mail import Mail
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
@@ -9,7 +9,7 @@ from routes.comment_routes import comment_bp
 from routes.pdf_routes import pdf_bp
 from routes.share_routes import share_bp
 from routes.user_routes import user_bp
-from utils.database import db_pool
+from utils.database import get_db_pool
 
 def create_application():
     app = Flask(__name__)
@@ -23,10 +23,19 @@ def create_application():
     @login_manager.user_loader
     def load_user(user_id):
         from models import User
-        return User.get_by_id(user_id) 
+        try:
+            user = User.get_by_id(user_id)
+            if not user:
+                print(f"User with ID {user_id} not found")
+                return None
+            return user
+        except Exception as e:
+            print(f"Error loading user: {e}")
+            return None
 
+    db_pool = get_db_pool()
     db_pool.init_app(app)
-    app.db_pool = db_pool
+    app.db_pool = db_pool 
     
     app.mail = mail
     app.bcrypt = bcrypt
@@ -37,7 +46,15 @@ def create_application():
     app.register_blueprint(share_bp)
     app.register_blueprint(comment_bp)
     app.register_blueprint(user_bp)
-    
+
+    @app.route('/favicon.ico')
+    def favicon():
+        return send_from_directory(
+            os.path.join(app.root_path, 'static'),
+            'favicon.ico',
+            mimetype='image/vnd.microsoft.icon'
+        )
+
     return app
 
 app = create_application()

@@ -1,4 +1,5 @@
 from flask import (
+    current_app,
     render_template, 
     request,
     flash, 
@@ -18,41 +19,48 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def dashboard():
-    search_query = request.args.get('q', '')  # Get search query if present
+    search_query = request.args.get('q', '')
     
     try:
         with db_cursor() as cursor:
-            if search_query:
-                # If search query exists, return filtered results
-                return search()  # Reuse the search function
-            else:
-                # Normal dashboard view
-                cursor.execute("""
-                    SELECT id, filename, upload_date 
-                    FROM pdf_files 
-                    WHERE user_id = %s 
-                    ORDER BY upload_date DESC
-                """, (current_user.id,))
-                user_pdfs = cursor.fetchall()
-                
-                cursor.execute("""
-                    SELECT pf.id, pf.filename, pf.upload_date, u.name as owner_name 
-                    FROM pdf_files pf
-                    JOIN shared_files sf ON pf.id = sf.file_id
-                    JOIN users u ON pf.user_id = u.id
-                    WHERE sf.share_token IN (
-                        SELECT share_token FROM shared_files WHERE created_by = %s
-                    )
-                """, (current_user.id,))
-                shared_pdfs = cursor.fetchall()
-                
-                return render_template('dashboard.html', 
-                                   user_pdfs=user_pdfs,
-                                   shared_pdfs=shared_pdfs,
-                                   search_query=search_query)
+            # Initialize empty lists as fallback
+            user_pdfs = []
+            shared_pdfs = []
+            
+            # Get user's PDFs (with null check)
+            cursor.execute("""
+                SELECT id, filename, upload_date 
+                FROM pdf_files 
+                WHERE user_id = %s 
+                ORDER BY upload_date DESC
+            """, (current_user.id,))
+            result = cursor.fetchall()
+            user_pdfs = result if result else []
+            
+            # Get shared PDFs (with null check)
+            cursor.execute("""
+                SELECT pf.id, pf.filename, pf.upload_date, u.name as owner_name 
+                FROM pdf_files pf
+                JOIN shared_files sf ON pf.id = sf.file_id
+                JOIN users u ON pf.user_id = u.id
+                WHERE sf.created_by = %s  # Changed from shared_with to created_by
+                ORDER BY pf.upload_date DESC
+            """, (current_user.id,))
+            result = cursor.fetchall()
+            shared_pdfs = result if result else []
+            
+            return render_template('dashboard.html', 
+                               user_pdfs=user_pdfs,
+                               shared_pdfs=shared_pdfs,
+                               search_query=search_query)
+            
     except Exception as e:
-        flash('Error loading dashboard', 'danger')
-        return redirect(url_for('auth_routes.login'))
+        current_app.logger.error(f"Dashboard error: {str(e)}", exc_info=True)
+        flash('Error loading dashboard content', 'warning')
+        return render_template('dashboard.html', 
+                           user_pdfs=[], 
+                           shared_pdfs=[],
+                           search_query=search_query)
 
 @login_required
 def upload_file():
@@ -61,18 +69,36 @@ def upload_file():
         return redirect(url_for('pdf_routes.dashboard'))
     
     file = request.files['file']
+    
     if file.filename == '':
         flash('No file selected', 'danger')
         return redirect(url_for('pdf_routes.dashboard'))
     
-    if file and allowed_file(file.filename):
-        try:
+    try:
+        if file and allowed_file(file.filename):
+            # Debug logging
+            current_app.logger.info(f"Attempting to upload file: {file.filename}")
+            
+            # Ensure upload directory exists
+            upload_dir = Config.UPLOAD_FOLDER
+            if not os.path.exists(upload_dir):
+                os.makedirs(upload_dir)
+                current_app.logger.info(f"Created upload directory: {upload_dir}")
+            
+            # Save file and record in database
             unique_filename = save_uploaded_file(file, current_user.id)
+            
+            # Verify file was saved
+            file_path = os.path.join(upload_dir, unique_filename)
+            if not os.path.exists(file_path):
+                raise Exception("File failed to save to disk")
+            
             flash('File uploaded successfully', 'success')
-        except Exception as e:
-            flash('Error uploading file', 'danger')
-    else:
-        flash('Only PDF files are allowed', 'danger')
+        else:
+            flash('Only PDF files are allowed', 'danger')
+    except Exception as e:
+        current_app.logger.error(f"Upload failed: {str(e)}", exc_info=True)
+        flash('Error uploading file', 'danger')
     
     return redirect(url_for('pdf_routes.dashboard'))
 

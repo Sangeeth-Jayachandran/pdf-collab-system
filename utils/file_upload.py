@@ -1,21 +1,38 @@
 import os
 import uuid
-from werkzeug.utils import secure_filename
+from datetime import datetime
+from config import Config
+import logging
+
+from utils.database import db_cursor
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'pdf'
+    """Check if file has allowed extension"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
 
 def save_uploaded_file(file, user_id):
-    filename = secure_filename(file.filename)
-    unique_filename = f"{uuid.uuid4().hex}_{filename}"
-    filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
-    
-    file.save(filepath)
-    
-    with db_cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO pdf_files (user_id, filename, filepath) VALUES (%s, %s, %s)",
-            (user_id, filename, unique_filename)
-        )
-    
-    return unique_filename
+    """Save uploaded file with unique name and store metadata"""
+    try:
+        # Generate unique filename
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        unique_name = f"{uuid.uuid4().hex}.{ext}"
+        filepath = os.path.join(Config.UPLOAD_FOLDER, unique_name)
+        
+        # Save file
+        file.save(filepath)
+        
+        # Store file metadata in database
+        with db_cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO pdf_files 
+                (user_id, filename, filepath) 
+                VALUES (%s, %s, %s)
+            """, (user_id, file.filename, unique_name))
+            
+        return unique_name
+    except Exception as e:
+        # Clean up if file was partially saved
+        if 'filepath' in locals() and os.path.exists(filepath):
+            os.remove(filepath)
+        raise e

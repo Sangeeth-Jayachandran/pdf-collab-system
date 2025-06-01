@@ -9,6 +9,7 @@ class DatabasePool:
             self.init_app(app)
     
     def init_app(self, app):
+        """Initialize with app context"""
         self.pool = pooling.MySQLConnectionPool(
             pool_name="pdf_pool",
             pool_size=5,
@@ -19,21 +20,12 @@ class DatabasePool:
             buffered=True,
             autocommit=True
         )
-
-    @contextmanager
-    def get_cursor(self):
-        """Context manager for database cursor with proper cleanup"""
-        conn = self.pool.get_connection()
-        cursor = conn.cursor(dictionary=True, buffered=True)
-        try:
-            yield cursor
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            cursor.close()
-            conn.close()
+    
+    def get_connection(self):
+        """Get connection from pool with validation"""
+        if not self.pool:
+            raise RuntimeError("Connection pool not initialized")
+        return self.pool.get_connection()
 
 db_pool = None
 
@@ -43,19 +35,24 @@ def get_db_pool():
         db_pool = DatabasePool()
     return db_pool
 
-def get_connection(self):
-    return self.pool.get_connection()
 
-# Create a convenience function that uses the pool instance
+
 @contextmanager
 def db_cursor():
-    """Convenience function for getting a database cursor"""
-    if not current_app or not hasattr(current_app, 'db_pool'):
-        raise RuntimeError("Application not configured with database pool")
-    
+    """Improved cursor handling with null checks"""
+    conn = None
     try:
-        connection = current_app.db_pool.get_connection()
-        cursor = connection.cursor(dictionary=True)
+        conn = current_app.db_pool.get_connection()
+        cursor = conn.cursor(dictionary=True)
+        yield cursor
+        conn.commit()
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        current_app.logger.error(f"DB operation failed: {str(e)}", exc_info=True)
+        raise
     finally:
-        cursor.close()
-        connection.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
