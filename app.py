@@ -26,7 +26,7 @@ def create_application():
         return User.get_by_id(user_id) 
 
     db_pool.init_app(app)
-    app.db_pool = db_pool
+    app.db_pool = db_pool.pool
     
     app.mail = mail
     app.bcrypt = bcrypt
