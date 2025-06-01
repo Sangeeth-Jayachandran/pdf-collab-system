@@ -1,4 +1,4 @@
-from flask import url_for
+from flask import current_app, url_for
 from flask_mail import Message
 from threading import Thread
 from extensions import mail
@@ -43,17 +43,28 @@ PDF Collaboration Team
     send_email(subject, [recipient], template)
 
 def send_password_reset_email(user, reset_url):
-    """Send password reset instructions email"""
-    subject = "Password Reset Request"
-    template = f"""Hello {user.name},
-
-You have requested to reset your password. Please click the link below to reset your password:
+    try:
+        # Handle both User objects and dictionaries
+        user_name = user.name if hasattr(user, 'name') else user.get('name', 'User')
+        user_email = user.email if hasattr(user, 'email') else user.get('email', '')
+        
+        template = f"""Hello {user_name},
+        
+You requested a password reset for your account. Please click the link below to reset your password:
 
 {reset_url}
 
-This link will expire in 1 hour. If you didn't request this, please ignore this email.
+This link will expire in 1 hour.
 
-Best regards,
-PDF Collaboration Team
+If you didn't request this, please ignore this email.
 """
-    send_email(subject, [user.email], template)
+        msg = Message(
+            subject="Password Reset Request",
+            recipients=[user_email],
+            body=template,
+            sender=current_app.config['MAIL_DEFAULT_SENDER']
+        )
+        mail.send(msg)
+    except Exception as e:
+        current_app.logger.error(f"Failed to send password reset email: {str(e)}")
+        raise

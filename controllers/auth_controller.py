@@ -76,9 +76,13 @@ def forgot_password():
         with db_cursor() as cursor:
             # Check if email exists
             cursor.execute("SELECT id, email, name FROM users WHERE email = %s", (email,))
-            user = cursor.fetchone()
+            user_data = cursor.fetchone()  # This returns a dictionary
             
-            if user:
+            if user_data:
+                # Convert to User object before passing to email function
+                from models import User
+                user = User(**user_data)
+                
                 # Generate reset token (valid for 1 hour)
                 reset_token = secrets.token_urlsafe(32)
                 expiry_time = datetime.now() + timedelta(hours=1)
@@ -86,7 +90,7 @@ def forgot_password():
                 # Store token in database
                 cursor.execute(
                     "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (%s, %s, %s)",
-                    (user['id'], reset_token, expiry_time)
+                    (user.id, reset_token, expiry_time)
                 )
                 
                 # Send reset email
