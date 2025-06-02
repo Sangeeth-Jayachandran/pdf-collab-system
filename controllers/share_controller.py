@@ -1,94 +1,150 @@
-from flask import jsonify, redirect, render_template, request, flash, url_for
+from flask import current_app, render_template, request, flash, redirect, url_for
 from flask_login import login_required, current_user
 from utils.database import db_cursor
-from utils.mail_utils import send_share_email
 import secrets
-import os
-from config import Config
+from datetime import datetime, timedelta
+from extensions import mail
+from utils.mail_utils import send_share_email
+from flask_mail import Message 
 
 @login_required
 def share_pdf(file_id):
-    """Generate a shareable link for a PDF"""
+    """Handle PDF sharing page"""
     try:
         with db_cursor() as cursor:
-            # Verify file ownership
-            cursor.execute("SELECT * FROM pdf_files WHERE id = %s AND user_id = %s", 
-                         (file_id, current_user.id))
-            if not cursor.fetchone():
+            # 1. Verify file ownership
+            cursor.execute("""
+                SELECT * FROM pdf_files 
+                WHERE id = %s AND user_id = %s
+            """, (file_id, current_user.id))
+            pdf_file = cursor.fetchone()
+            
+            if not pdf_file:
                 flash('No permission to share this file', 'danger')
                 return redirect(url_for('pdf_routes.dashboard'))
 
-            # Generate unique share token
-            share_token = secrets.token_urlsafe(32)
-            
-            # Store share token in database
+            # 2. Check for existing share link
             cursor.execute("""
-                INSERT INTO shared_files (file_id, share_token, created_by)
-                VALUES (%s, %s, %s)
-                ON DUPLICATE KEY UPDATE share_token = VALUES(share_token)
-            """, (file_id, share_token, current_user.id))
+                SELECT * FROM shared_files 
+                WHERE file_id = %s AND created_by = %s
+            """, (file_id, current_user.id))
+            share = cursor.fetchone()
+
+            # 3. Handle form submissions
+            if request.method == 'POST':
+                action = request.form.get('action')
+                
+                if action == 'create':
+                    # Create new share link
+                    share_token = secrets.token_urlsafe(32)
+                    expires_at = datetime.now() + timedelta(days=7)
+                    
+                    cursor.execute("""
+                        INSERT INTO shared_files 
+                        (file_id, share_token, created_by, expires_at)
+                        VALUES (%s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                        share_token = VALUES(share_token),
+                        expires_at = VALUES(expires_at)
+                    """, (file_id, share_token, current_user.id, expires_at))
+                    flash('Share link created successfully', 'success')
+                    
+                elif action == 'refresh':
+                    # Refresh existing share link
+                    new_token = secrets.token_urlsafe(32)
+                    cursor.execute("""
+                        UPDATE shared_files 
+                        SET share_token = %s, expires_at = %s
+                        WHERE id = %s
+                    """, (new_token, datetime.now() + timedelta(days=7), share['id']))
+                    flash('Share link refreshed successfully', 'success')
+
+                elif action == 'permissions':
+                    allow_comments = 'allow_comments' in request.form
+                    allow_download = 'allow_download' in request.form
+                    
+                    cursor.execute("""
+                        UPDATE shared_files 
+                        SET allow_comments = %s, allow_download = %s
+                        WHERE file_id = %s AND created_by = %s
+                    """, (allow_comments, allow_download, file_id, current_user.id))
             
-            # Generate share URL
-            share_url = url_for('share_routes.view_shared_pdf', token=share_token, _external=True)
-            
-            return jsonify({
-                'success': True,
-                'url': share_url
-            })
+                    flash('Permissions updated successfully', 'success')
+                                    
+                return redirect(url_for('share_routes.share_pdf', file_id=file_id))
+
+            # 4. Render the template
+            return render_template('share_pdf.html',
+                pdf_file=pdf_file,
+                share=share,
+                share_expiry_delta=timedelta(days=7))
+                
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        flash(f'Error: {str(e)}', 'danger')
+        return redirect(url_for('pdf_routes.view_pdf', file_id=file_id))
 
 @login_required
 def share_pdf_email(file_id):
-    """Share PDF via email"""
+    """Handle email sharing with immediate feedback"""
     email = request.form.get('email')
     if not email:
-        return jsonify({
-            'success': False,
-            'error': 'Email address is required'
-        }), 400
+        flash('❌ Email address is required', 'danger')
+        return redirect(url_for('share_routes.share_pdf', file_id=file_id))
     
     try:
         with db_cursor() as cursor:
-            # Get file info and share token
+            # Get file and share info
             cursor.execute("""
-                SELECT pf.filename, sf.share_token 
+                SELECT pf.filename, sf.share_token
                 FROM pdf_files pf
-                LEFT JOIN shared_files sf ON pf.id = sf.file_id
+                JOIN shared_files sf ON pf.id = sf.file_id
                 WHERE pf.id = %s AND pf.user_id = %s
+                LIMIT 1
             """, (file_id, current_user.id))
             result = cursor.fetchone()
             
-            if not result or not result['share_token']:
-                return jsonify({
-                    'success': False,
-                    'error': 'File not found or not shared'
-                }), 404
+            if not result or not result.get('share_token'):
+                flash('❌ Please create a share link first', 'danger')
+                return redirect(url_for('share_routes.share_pdf', file_id=file_id))
             
-            # Send share email
+            # Prepare email content
             share_url = url_for('share_routes.view_shared_pdf', 
                               token=result['share_token'], 
                               _external=True)
-            send_share_email(
-                recipient=email,
-                sharer_name=current_user.name,
-                filename=result['filename'],
-                share_url=share_url
-            )
             
-            return jsonify({
-                'success': True,
-                'message': f'Share link sent to {email}'
-            })
+            try:
+                msg = Message(
+                    subject=f"📄 {current_user.name} shared a PDF with you",
+                    recipients=[email],
+                    sender=current_app.config['MAIL_DEFAULT_SENDER'],
+                    body=f"""
+                    {current_user.name} has shared a PDF with you:
+                    File: {result['filename']}
+                    Link: {share_url}
+                    This link expires in 7 days.
+                    """
+                )
+                
+                mail.send(msg)
+                print(f"Attempting to send email to {email}") 
+                print(f"Using SMTP: {current_app.config['MAIL_SERVER']}:{current_app.config['MAIL_PORT']}")
+                print(f"Auth: {current_app.config['MAIL_USERNAME']}")
+                flash('✅ Share link sent successfully!', 'success')
+                current_app.logger.info(f"Email sent to {email}")
+                
+            except Exception as email_error:
+                error_msg = f"❌ Failed to send email: {str(email_error)}"
+                current_app.logger.error(error_msg)
+                flash(error_msg, 'danger')
+            
+            return redirect(url_for('share_routes.share_pdf', file_id=file_id))
+            
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
+        error_msg = f"❌ System error: {str(e)}"
+        current_app.logger.error(error_msg)
+        flash(error_msg, 'danger')
+        return redirect(url_for('share_routes.share_pdf', file_id=file_id))
+    
 def view_shared_pdf(token):
     """View a shared PDF"""
     try:
