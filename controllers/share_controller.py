@@ -146,15 +146,16 @@ def share_pdf_email(file_id):
         return redirect(url_for('share_routes.share_pdf', file_id=file_id))
     
 def view_shared_pdf(token):
-    """View a shared PDF"""
+    """View a shared PDF without requiring login"""
     try:
         with db_cursor() as cursor:
-            # Get PDF file by share token
+            # 1. Verify the share token is valid
             cursor.execute("""
-                SELECT pf.*, sf.share_token 
+                SELECT pf.*, sf.share_token, sf.allow_comments
                 FROM pdf_files pf
                 JOIN shared_files sf ON pf.id = sf.file_id
                 WHERE sf.share_token = %s
+                AND (sf.expires_at IS NULL OR sf.expires_at > NOW())
             """, (token,))
             pdf_file = cursor.fetchone()
             
@@ -162,7 +163,7 @@ def view_shared_pdf(token):
                 flash('Invalid or expired share link', 'danger')
                 return redirect(url_for('auth_routes.login'))
             
-            # Get comments for the PDF
+            # 2. Get comments for the PDF
             cursor.execute("""
                 SELECT c.*, COALESCE(u.name, 'Anonymous') as user_name
                 FROM comments c
@@ -172,6 +173,7 @@ def view_shared_pdf(token):
             """, (pdf_file['id'],))
             comments = cursor.fetchall()
             
+            # 3. Render the PDF viewer template
             return render_template('pdf_viewer.html',
                 pdf_file=pdf_file,
                 comments=comments,
@@ -179,6 +181,8 @@ def view_shared_pdf(token):
                 is_shared=True,
                 share_token=token
             )
+            
     except Exception as e:
-        flash('Error loading shared PDF', 'danger')
+        current_app.logger.error(f"Error loading shared PDF: {str(e)}")
+        flash('Error loading PDF', 'danger')
         return redirect(url_for('auth_routes.login'))

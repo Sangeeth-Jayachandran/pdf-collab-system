@@ -43,15 +43,29 @@
                 <div id="comments-container">
                     {% if comments %}
                         {% for comment in comments %}
-                            <div class="comment mb-3 border rounded p-2" data-comment-id="{{ comment.id }}">
-                                <strong>{{ comment.user_name or 'Guest' }}</strong><br>
+                            <div class="comment mb-3 border rounded p-2" data-comment-id="{{ comment.id }}" {% if comment.parent_id %}data-parent-id="{{ comment.parent_id }}"{% endif %}>
+                                <strong>{{ comment.user_name }}</strong><br>
                                 {{ comment.content }}
                                 {% if current_user.is_authenticated or is_shared %}
                                 <div class="mt-1">
                                     <button class="btn btn-sm btn-link reply-btn">Reply</button>
                                 </div>
                                 {% endif %}
-                                <div class="replies ms-4 mt-2"></div>
+                                <div class="replies ms-4 mt-2">
+                                    {% for reply in comments %}
+                                        {% if reply.parent_id == comment.id %}
+                                            <div class="comment mb-3 border rounded p-2" data-comment-id="{{ reply.id }}" data-parent-id="{{ reply.parent_id }}">
+                                                <strong>{{ reply.user_name }}</strong><br>
+                                                {{ reply.content }}
+                                                {% if current_user.is_authenticated or is_shared %}
+                                                <div class="mt-1">
+                                                    <button class="btn btn-sm btn-link reply-btn">Reply</button>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
                             </div>
                         {% endfor %}
                     {% else %}
@@ -61,33 +75,30 @@
                 
                 <div class="mt-3">
                     {% if is_shared %}
-                        <!-- Single Guest Comment Form -->
-                        {% if not current_user.is_authenticated %}
+                        <!-- Single Comment Form -->
                         <form id="comment-form">
                             <input type="hidden" name="file_id" value="{{ pdf_file.id }}">
                             <input type="hidden" name="share_token" value="{{ share_token }}">
+                            {% if not current_user.is_authenticated %}
                             <div class="mb-3">
                                 <input type="text" class="form-control mb-2" name="guest_name" 
                                        placeholder="Your name (optional)" maxlength="50">
-                                <textarea class="form-control" name="content" rows="3" 
-                                          placeholder="Add a comment..." required></textarea>
                             </div>
-                            <button type="submit" class="btn btn-primary">Post Comment</button>
-                        </form>
-                        {% else %}
-                        <!-- Authenticated User Comment Form -->
-                        <form id="comment-form">
-                            <input type="hidden" name="file_id" value="{{ pdf_file.id }}">
+                            {% endif %}
                             <div class="mb-3">
                                 <textarea class="form-control" name="content" rows="3" 
                                           placeholder="Add a comment..." required></textarea>
                             </div>
-                            <button type="submit" class="btn btn-primary">Post Comment</button>
+                            <button type="submit" class="btn btn-primary">
+                                {% if current_user.is_authenticated %}
+                                    Post Comment
+                                {% else %}
+                                    Post as Guest
+                                {% endif %}
+                            </button>
                         </form>
-                        {% endif %}
-                    {% else %}
+                    {% elif current_user.is_authenticated %}
                         <!-- Regular Comment Form for private documents -->
-                        {% if current_user.is_authenticated %}
                         <form id="comment-form">
                             <input type="hidden" name="file_id" value="{{ pdf_file.id }}">
                             <div class="mb-3">
@@ -96,7 +107,6 @@
                             </div>
                             <button type="submit" class="btn btn-primary">Post Comment</button>
                         </form>
-                        {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -107,172 +117,101 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    function postReply(fileId, content, parentId) {
-        fetch('/add_comment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                file_id: fileId,
-                content: content,
-                parent_id: parentId
-            })
-        })
-        .then(res => res.json().then(body => ({ status: res.status, body })))
-        .then(({ status, body }) => {
-            if (status !== 200 || !body.success) {
-                throw new Error(body.error || 'Unknown error');
-            }
-            
-            alert("Reply posted!");
-            console.log("Reply Data:", body.comment);
-        })
-        .catch(error => {
-            alert("Error posting reply: " + error.message);
-        });
-    }
-
-    function bindReplyButtons(container) {
-        container.querySelectorAll('.reply-btn').forEach(button => {
-            button.addEventListener('click', function () {
-                const commentCard = button.closest('.comment');
-                const commentId = commentCard.dataset.commentId;
-                if (commentCard.querySelector('.reply-form')) return;
-
-                const replyForm = document.createElement('form');
-                replyForm.className = 'reply-form mt-2';
-                replyForm.innerHTML = `
-                    <input type="hidden" name="file_id" value="{{ pdf_file.id }}">
-                    <input type="hidden" name="parent_id" value="${commentId}">
-                    {% if is_shared %}
-                        <input type="hidden" name="share_token" value="{{ share_token }}">
-                    {% endif %}
-                    {% if not current_user.is_authenticated and is_shared %}
-                        <div class="mb-2">
-                            <input type="text" class="form-control mb-2" name="guest_name" placeholder="Your name (optional)" maxlength="50">
-                        </div>
-                    {% endif %}
-                    <div class="mb-2">
-                        <textarea class="form-control" name="content" rows="2" placeholder="Write a reply..." required></textarea>
-                    </div>
-                    <div class="d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary cancel-reply">Cancel</button>
-                        <button type="submit" class="btn btn-sm btn-primary">Post Reply</button>
-                    </div>
-                `;
-                commentCard.appendChild(replyForm);
-
-                replyForm.querySelector('.cancel-reply').addEventListener('click', () => replyForm.remove());
-
-                replyForm.addEventListener('submit', function (e) {
-                    e.preventDefault();
-                    const formData = new FormData(replyForm);
-                    const data = {
-                        file_id: formData.get('file_id'),
-                        content: formData.get('content'),
-                        parent_id: formData.get('parent_id'),
-                        share_token: formData.get('share_token')
-                    };
-                    const guestNameInput = replyForm.querySelector('input[name="guest_name"]');
-                    if (guestNameInput) data.guest_name = guestNameInput.value || 'Anonymous';
-
-                    fetch('{{ url_for("comment_routes.add_comment") }}', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify(data)
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            replyForm.remove();
-                            const replyHtml = `
-                                <div class="comment mb-3" data-comment-id="${data.comment.id}" data-parent-id="${data.comment.parent_id}">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6 class="card-subtitle mb-2 text-muted">${data.comment.user_name}</h6>
-                                            <p class="card-text">${data.comment.content}</p>
-                                            <small class="text-muted">${data.comment.created_at}</small>
-                                            {% if is_shared or current_user.is_authenticated %}
-                                            <button class="btn btn-sm btn-outline-secondary reply-btn float-end">Reply</button>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                            let repliesContainer = commentCard.querySelector('.replies');
-                            if (!repliesContainer) {
-                                repliesContainer = document.createElement('div');
-                                repliesContainer.className = 'replies ms-4 mt-2';
-                                commentCard.appendChild(repliesContainer);
-                            }
-                            repliesContainer.insertAdjacentHTML('beforeend', replyHtml);
-                            bindReplyButtons(repliesContainer);
-                        } else {
-                            alert('Error: ' + data.error);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An error occurred while posting the reply');
-                    });
-                });
-            });
-        });
-    }
-
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle comment form submission
     const commentForm = document.getElementById('comment-form');
     if (commentForm) {
-        commentForm.addEventListener('submit', function (e) {
+        commentForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData(commentForm);
-            const data = {
-                file_id: formData.get('file_id'),
-                content: formData.get('content'),
-                share_token: formData.get('share_token')
-            };
-            const guestNameInput = commentForm.querySelector('input[name="guest_name"]');
-            if (guestNameInput) data.guest_name = guestNameInput.value || 'Anonymous';
-
-            fetch('{{ url_for("comment_routes.add_comment") }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const commentHtml = `
-                        <div class="comment mb-3" data-comment-id="${data.comment.id}">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h6 class="card-subtitle mb-2 text-muted">${data.comment.user_name}</h6>
-                                    <p class="card-text">${data.comment.content}</p>
-                                    <small class="text-muted">${data.comment.created_at}</small>
-                                    {% if is_shared or current_user.is_authenticated %}
-                                    <button class="btn btn-sm btn-outline-secondary reply-btn float-end">Reply</button>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    document.getElementById('comments-container').insertAdjacentHTML('beforeend', commentHtml);
-                    commentForm.querySelector('textarea').value = '';
-                    if (guestNameInput) guestNameInput.value = '';
-                    bindReplyButtons(document.getElementById('comments-container'));
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while posting the comment');
-            });
+            submitComment(commentForm);
         });
     }
 
-    bindReplyButtons(document.getElementById('comments-container'));
+    // Handle reply button clicks
+    document.getElementById('comments-container')?.addEventListener('click', function(e) {
+        if (e.target.classList.contains('reply-btn')) {
+            const commentCard = e.target.closest('.comment');
+            const commentId = commentCard.dataset.commentId;
+            
+            // Remove any existing reply forms
+            document.querySelectorAll('.reply-form').forEach(form => form.remove());
+            
+            // Create new reply form
+            const replyForm = document.createElement('form');
+            replyForm.className = 'reply-form mt-2';
+            replyForm.innerHTML = `
+                <input type="hidden" name="file_id" value="{{ pdf_file.id }}">
+                <input type="hidden" name="parent_id" value="${commentId}">
+                {% if is_shared %}
+                <input type="hidden" name="share_token" value="{{ share_token }}">
+                {% endif %}
+                {% if not current_user.is_authenticated and is_shared %}
+                <div class="mb-2">
+                    <input type="text" class="form-control mb-2" name="guest_name" 
+                           placeholder="Your name (optional)" maxlength="50">
+                </div>
+                {% endif %}
+                <div class="mb-2">
+                    <textarea class="form-control" name="content" rows="2" placeholder="Write a reply..." required></textarea>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary cancel-reply">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-primary">Post Reply</button>
+                </div>
+            `;
+            
+            commentCard.querySelector('.replies').appendChild(replyForm);
+            
+            // Handle form submission
+            replyForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                submitComment(replyForm);
+            });
+            
+            // Handle cancel
+            replyForm.querySelector('.cancel-reply').addEventListener('click', function() {
+                replyForm.remove();
+            });
+        }
+    });
+
+    // Generic function to submit comments and replies
+    function submitComment(form) {
+        const formData = new FormData(form);
+        const data = {
+            file_id: formData.get('file_id'),
+            content: formData.get('content'),
+            parent_id: formData.get('parent_id'),
+            share_token: formData.get('share_token')
+        };
+        
+        // Add guest name if present
+        const guestNameInput = form.querySelector('input[name="guest_name"]');
+        if (guestNameInput) {
+            data.guest_name = guestNameInput.value || 'Anonymous';
+        }
+        
+        fetch('{{ url_for("comment_routes.add_comment") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload(); // Refresh to show new comment/reply
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while posting the comment');
+        });
+    }
 });
-
-
 </script>
 {% endblock %}
